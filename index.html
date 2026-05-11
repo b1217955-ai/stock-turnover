@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>株 売買回転日数チャート</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;background:#f7f6f3;color:#1a1a1a;font-size:14px}
+header{position:sticky;top:0;background:#fff;border-bottom:2px solid #f97316;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10}
+header h1{font-size:16px;font-weight:700;color:#f97316}
+header .updated{font-size:11px;color:#888}
+.wrap{max-width:960px;margin:0 auto;padding:16px}
+.search-area{background:#fff;border-radius:8px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.search-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.search-row input{border:1px solid #ddd;border-radius:6px;padding:8px 12px;font-size:14px;width:160px;outline:none}
+.search-row input:focus{border-color:#f97316}
+.search-row button{background:#f97316;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:14px;cursor:pointer;font-weight:600}
+.search-row button:hover{background:#ea6c0e}
+.chips{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:#fff3e8;border:1px solid #f97316;color:#c2570a;border-radius:20px;padding:3px 12px;font-size:12px;cursor:pointer;transition:background .15s}
+.chip:hover,.chip.active{background:#f97316;color:#fff}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:600px){.cards{grid-template-columns:repeat(2,1fr)}}
+.card{background:#fff;border-radius:8px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.08);text-align:center}
+.card .label{font-size:11px;color:#888;margin-bottom:4px}
+.card .value{font-size:20px;font-weight:700;color:#f97316}
+.card .unit{font-size:11px;color:#aaa;margin-top:2px}
+.chart-box{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:14px}
+.chart-box h2{font-size:13px;font-weight:600;color:#555;margin-bottom:12px}
+.chart-wrap{position:relative;height:300px}
+.msg{text-align:center;padding:40px 16px;color:#888;font-size:13px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:14px}
+footer{text-align:center;padding:16px;font-size:11px;color:#aaa;line-height:1.8}
+</style>
+</head>
+<body>
+<header>
+  <h1>📈 株 売買回転日数チャート</h1>
+  <span class="updated" id="updated"></span>
+</header>
+<div class="wrap">
+  <div class="search-area">
+    <div class="search-row">
+      <input type="text" id="code-input" placeholder="銘柄コード例: 7203" maxlength="8">
+      <button onclick="search()">チャート表示</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="cards" id="cards" style="display:none">
+    <div class="card"><div class="label">銘柄</div><div class="value" id="c-name" style="font-size:14px;padding-top:4px"></div></div>
+    <div class="card"><div class="label">最新 回転日数</div><div class="value" id="c-latest"></div><div class="unit">日</div></div>
+    <div class="card"><div class="label">最大値（期間内）</div><div class="value" id="c-max"></div><div class="unit">日</div></div>
+    <div class="card"><div class="label">最小値（期間内）</div><div class="value" id="c-min"></div><div class="unit">日</div></div>
+  </div>
+
+  <div id="msg" class="msg">銘柄コードを入力するか、下のチップをクリックしてください</div>
+  <div class="chart-box" id="chart-box" style="display:none">
+    <h2 id="chart-title"></h2>
+    <div class="chart-wrap"><canvas id="chart"></canvas></div>
+  </div>
+</div>
+<footer>
+  データ: Yahoo Finance (yfinance) ／ 売買回転日数 = 上場株式数 ÷ 日次出来高<br>
+  ※ 情報提供のみが目的です。投資判断の根拠としないでください。
+</footer>
+
+<script src="data.js"></script>
+<script>
+let chartInst = null;
+
+function init() {
+  if (!window.TURNOVER_META) return;
+  document.getElementById("updated").textContent = "最終更新: " + TURNOVER_META.updated;
+  const chips = document.getElementById("chips");
+  TURNOVER_META.tickers.forEach(code => {
+    const d = TURNOVER_DATA[code];
+    if (!d) return;
+    const el = document.createElement("span");
+    el.className = "chip";
+    el.textContent = code + " " + shortName(d.name);
+    el.dataset.code = code;
+    el.onclick = () => { document.getElementById("code-input").value = code; search(); };
+    chips.appendChild(el);
+  });
+  // 最初の銘柄を自動表示
+  if (TURNOVER_META.tickers.length > 0) {
+    const first = TURNOVER_META.tickers[0];
+    document.getElementById("code-input").value = first;
+    search();
+  }
+}
+
+function shortName(name) {
+  return name.length > 8 ? name.slice(0, 8) + "…" : name;
+}
+
+function search() {
+  const code = document.getElementById("code-input").value.trim().replace(/[．.]/g, "");
+  if (!code) return;
+  const d = window.TURNOVER_DATA && TURNOVER_DATA[code];
+  if (!d) {
+    showMsg("「" + code + "」のデータは未取得です。\nmake_data.py の DEFAULT_TICKERS に追加して再実行してください。");
+    return;
+  }
+  document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.code === code));
+  showChart(code, d);
+}
+
+function showMsg(text) {
+  document.getElementById("msg").style.display = "";
+  document.getElementById("msg").textContent = text;
+  document.getElementById("chart-box").style.display = "none";
+  document.getElementById("cards").style.display = "none";
+}
+
+function showChart(code, d) {
+  document.getElementById("msg").style.display = "none";
+  document.getElementById("chart-box").style.display = "";
+  document.getElementById("cards").style.display = "";
+
+  const t = d.turnover;
+  document.getElementById("c-name").textContent = d.name + "（" + code + "）";
+  document.getElementById("c-latest").textContent = t[t.length - 1].toLocaleString();
+  document.getElementById("c-max").textContent = Math.max(...t).toLocaleString();
+  document.getElementById("c-min").textContent = Math.min(...t).toLocaleString();
+  document.getElementById("chart-title").textContent = d.name + "（" + code + "） 売買回転日数の推移（過去" + d.dates.length + "日）";
+
+  if (chartInst) chartInst.destroy();
+  const ctx = document.getElementById("chart").getContext("2d");
+  chartInst = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: d.dates,
+      datasets: [{
+        label: "売買回転日数（日）",
+        data: t,
+        borderColor: "#f97316",
+        backgroundColor: "rgba(249,115,22,0.07)",
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        tension: 0.1,
+        fill: true,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => "回転日数: " + ctx.parsed.y.toLocaleString() + " 日",
+            afterLabel: ctx => "出来高: " + d.volumes[ctx.dataIndex].toLocaleString() + " 株"
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 10, maxRotation: 30 },
+          grid: { color: "#f0f0f0" }
+        },
+        y: {
+          beginAtZero: false,
+          title: { display: true, text: "日数" },
+          grid: { color: "#f0f0f0" }
+        }
+      }
+    }
+  });
+}
+
+document.getElementById("code-input").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
+window.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
