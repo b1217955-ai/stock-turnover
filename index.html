@@ -36,8 +36,9 @@ header .updated{font-size:11px;color:#999}
 .tab.active .close{opacity:.8}
 
 /* カード */
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
-@media(max-width:600px){.cards{grid-template-columns:repeat(2,1fr)}}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px}
+@media(max-width:700px){.cards{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:440px){.cards{grid-template-columns:repeat(2,1fr)}}
 .card{background:#fff;border-radius:10px;padding:14px 10px;box-shadow:0 1px 4px rgba(0,0,0,.07);text-align:center}
 .card .lbl{font-size:10px;color:#aaa;margin-bottom:5px;font-weight:600;letter-spacing:.5px}
 .card .val{font-size:22px;font-weight:800;line-height:1.1}
@@ -99,6 +100,7 @@ footer{text-align:center;padding:12px;font-size:11px;color:#bbb;line-height:1.9}
       <div class="card"><div class="lbl">最新 回転日数</div><div class="val org" id="c-turn"></div><div class="unt">日</div></div>
       <div class="card"><div class="lbl">現在株価</div><div class="val blu" id="c-price"></div><div class="unt">円</div></div>
       <div class="card"><div class="lbl">最小回転日数</div><div class="val org" id="c-min"></div><div class="unt">日（出来高ピーク）</div></div>
+      <div class="card"><div class="lbl">最新 信用倍率</div><div class="val" style="color:#10b981" id="c-margin">—</div><div class="unt">倍（週次）</div></div>
     </div>
     <div class="chart-box">
       <div class="chart-head">
@@ -106,6 +108,7 @@ footer{text-align:center;padding:12px;font-size:11px;color:#bbb;line-height:1.9}
         <div class="legend">
           <div class="leg"><div class="leg-dot" style="background:#f97316"></div>回転日数</div>
           <div class="leg"><div class="leg-dot" style="background:#3b82f6"></div>株価</div>
+          <div class="leg" id="leg-margin" style="display:none"><div class="leg-dot" style="background:#10b981"></div>信用倍率</div>
         </div>
       </div>
       <div class="chart-wrap" id="chart-wrap"><canvas id="chart"></canvas></div>
@@ -239,10 +242,14 @@ function switchTab(code) {
 
   const t = d.turnover, p = d.closes;
   const latestPrice = p ? [...p].reverse().find(v=>v!==null) : null;
+  const m = d.margins;
+  const latestMargin = m ? [...m].reverse().find(v=>v!==null) : null;
   document.getElementById('c-name').textContent = d.name + '（' + code + '）';
   document.getElementById('c-turn').textContent = t[t.length-1].toLocaleString();
   document.getElementById('c-price').textContent = latestPrice ? latestPrice.toLocaleString() : '—';
   document.getElementById('c-min').textContent = Math.min(...t).toLocaleString();
+  document.getElementById('c-margin').textContent = latestMargin ? latestMargin.toFixed(2) : '—';
+  document.getElementById('leg-margin').style.display = latestMargin ? '' : 'none';
   document.getElementById('chart-title').textContent = d.name + '（' + code + '）　過去' + d.dates.length + '日間';
 
   const h = window.innerWidth < 600 ? 260 : 400;
@@ -259,7 +266,13 @@ function switchTab(code) {
     label:'株価', data:p, borderColor:'#3b82f6', backgroundColor:'transparent',
     pointRadius:0, pointHoverRadius:5, tension:.25, fill:false, borderWidth:2, yAxisID:'yR', spanGaps:true
   });
+  if (m && latestMargin) datasets.push({
+    label:'信用倍率', data:m, borderColor:'#10b981', backgroundColor:'transparent',
+    pointRadius:0, pointHoverRadius:5, tension:0, fill:false, borderWidth:2,
+    borderDash:[4,3], yAxisID:'yM', spanGaps:true
+  });
 
+  const hasMargin = !!(m && latestMargin);
   mainChart = new Chart(document.getElementById('chart').getContext('2d'), {
     type:'line', data:{labels:d.dates, datasets},
     options:{
@@ -273,7 +286,11 @@ function switchTab(code) {
           titleColor:'#333', bodyColor:'#555', padding:10, cornerRadius:8,
           callbacks:{
             title:c=>c[0].label,
-            label:c=>c.dataset.yAxisID==='yL'?'  回転日数: '+c.parsed.y.toLocaleString()+' 日':'  株価: '+(c.parsed.y?.toLocaleString()||'—')+' 円',
+            label:c=>{
+              if(c.dataset.yAxisID==='yL') return '  回転日数: '+c.parsed.y.toLocaleString()+' 日';
+              if(c.dataset.yAxisID==='yM') return '  信用倍率: '+(c.parsed.y?.toFixed(2)||'—')+' 倍';
+              return '  株価: '+(c.parsed.y?.toLocaleString()||'—')+' 円';
+            },
             afterBody:c=>'  出来高: '+d.volumes[c[0].dataIndex].toLocaleString()+' 株'
           }
         }
@@ -281,7 +298,8 @@ function switchTab(code) {
       scales:{
         x:{ticks:{maxTicksLimit:window.innerWidth<600?6:10,maxRotation:30,color:'#aaa',font:{size:11}},grid:{color:'#f0f0f0'}},
         yL:{type:'linear',position:'left',title:{display:true,text:'回転日数（日）',color:'#f97316',font:{size:11,weight:'bold'}},ticks:{color:'#f97316',font:{size:11},callback:v=>v.toLocaleString()},grid:{color:'#f0f0f0'}},
-        yR:{type:'linear',position:'right',display:!!p,title:{display:!!p,text:'株価（円）',color:'#3b82f6',font:{size:11,weight:'bold'}},ticks:{color:'#3b82f6',font:{size:11},callback:v=>v.toLocaleString()},grid:{drawOnChartArea:false}}
+        yR:{type:'linear',position:'right',display:!!p,title:{display:!!p,text:'株価（円）',color:'#3b82f6',font:{size:11,weight:'bold'}},ticks:{color:'#3b82f6',font:{size:11},callback:v=>v.toLocaleString()},grid:{drawOnChartArea:false}},
+        yM:{type:'linear',position:'right',display:hasMargin,offset:true,title:{display:hasMargin,text:'信用倍率',color:'#10b981',font:{size:11,weight:'bold'}},ticks:{color:'#10b981',font:{size:11},callback:v=>v.toFixed(1)+'倍'},grid:{drawOnChartArea:false}}
       }
     }
   });
@@ -416,16 +434,36 @@ async function fetchPrices(code,dates) {
   return dates.map(d=>map[d]??null);
 }
 
+function fillMarginByDate(dates, marginMap) {
+  let last = null;
+  return dates.map(date => {
+    if (marginMap[date] !== undefined) last = marginMap[date];
+    return last;
+  });
+}
+
 async function fetchLive(code) {
-  const kr=await fetch(PROXY+encodeURIComponent(`https://kabutan.jp/stock/?code=${code}`));
-  const html=await kr.text();
+  const [kr, yr] = await Promise.all([
+    fetch(PROXY+encodeURIComponent(`https://kabutan.jp/stock/?code=${code}`)),
+    fetch(PROXY+encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${code}.T?range=6mo&interval=1d`))
+  ]);
+  const [html, j] = await Promise.all([kr.text(), yr.json()]);
+
   const sm=html.match(/発行済株式数<\/th>\s*<td>([\d,]+)&nbsp;株/);
   if(!sm) throw new Error('銘柄が見つかりません（'+code+'）');
   const shares=parseInt(sm[1].replace(/,/g,''));
   const nm=html.match(/<title>([^【]+)【/);
   const name=nm?nm[1].trim():code;
-  const r=await fetch(PROXY+encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${code}.T?range=6mo&interval=1d`));
-  const j=await r.json(); const res=j?.chart?.result?.[0]; if(!res) throw new Error('株価データが取得できません');
+
+  // 信用倍率（週次）: <time datetime="YYYY-MM-DD"> ... <td>倍率</td>
+  const marginMap={};
+  const mRows=html.matchAll(/<time\s+datetime="(\d{4}-\d{2}-\d{2})"[\s\S]*?<\/time>[\s\S]*?<td>[^<]+<\/td>\s*<td>[^<]+<\/td>\s*<td>([\d.]+)<\/td>/g);
+  for(const m of mRows){
+    const ratio=parseFloat(m[2]);
+    if(!isNaN(ratio)&&ratio>0) marginMap[m[1]]=ratio;
+  }
+
+  const res=j?.chart?.result?.[0]; if(!res) throw new Error('株価データが取得できません');
   const ts=res.timestamp||[],vols=res.indicators?.quote?.[0]?.volume||[],cls=res.indicators?.quote?.[0]?.close||[];
   const dates=[],volumes=[],turnover=[],closes=[];
   for(let i=0;i<ts.length;i++){
@@ -435,7 +473,8 @@ async function fetchLive(code) {
     closes.push(cls[i]?Math.round(cls[i]*10)/10:null);
   }
   if(!dates.length) throw new Error('出来高データが取得できません');
-  return {name,shares,dates,volumes,turnover,closes};
+  const margins=fillMarginByDate(dates, marginMap);
+  return {name,shares,dates,volumes,turnover,closes,margins};
 }
 
 document.getElementById('inp').addEventListener('keydown', e=>{if(e.key==='Enter') doSearch();});
