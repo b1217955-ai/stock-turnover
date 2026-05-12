@@ -7,264 +7,285 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;background:#f7f6f3;color:#1a1a1a;font-size:14px}
-header{position:sticky;top:0;background:#fff;border-bottom:2px solid #f97316;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10}
-header h1{font-size:16px;font-weight:700;color:#f97316}
-header .updated{font-size:11px;color:#888}
-.wrap{max-width:1000px;margin:0 auto;padding:16px}
-.search-area{background:#fff;border-radius:8px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.search-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.search-row input{border:1px solid #ddd;border-radius:6px;padding:8px 12px;font-size:14px;width:160px;outline:none}
+body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;background:#f2f1ee;color:#1a1a1a;font-size:14px}
+
+header{position:sticky;top:0;background:#fff;border-bottom:3px solid #f97316;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+header h1{font-size:17px;font-weight:800;color:#f97316;letter-spacing:-.3px}
+header .updated{font-size:11px;color:#999}
+
+.wrap{max-width:960px;margin:0 auto;padding:14px 14px 24px}
+
+/* 検索エリア */
+.search-box{background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.search-row{display:flex;gap:8px}
+.search-row input{flex:1;border:1.5px solid #e5e5e5;border-radius:8px;padding:10px 14px;font-size:15px;outline:none;min-width:0;transition:border-color .15s}
 .search-row input:focus{border-color:#f97316}
-.search-row button{background:#f97316;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:14px;cursor:pointer;font-weight:600}
-.search-row button:hover{background:#ea6c0e}
-.search-row button:disabled{background:#ccc;cursor:not-allowed}
+.search-row button{background:#f97316;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s}
+.search-row button:hover{background:#e8690a}
+.search-row button:disabled{background:#d0d0d0;cursor:not-allowed}
 .chips{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
-.chip{background:#fff3e8;border:1px solid #f97316;color:#c2570a;border-radius:20px;padding:3px 12px;font-size:12px;cursor:pointer;transition:background .15s}
-.chip:hover,.chip.active{background:#f97316;color:#fff}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.chip{background:#fff7f0;border:1.5px solid #f97316;color:#c25a00;border-radius:20px;padding:4px 13px;font-size:12px;cursor:pointer;transition:all .15s;font-weight:500}
+.chip:hover,.chip.active{background:#f97316;color:#fff;border-color:#f97316}
+
+/* サマリーカード */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
 @media(max-width:600px){.cards{grid-template-columns:repeat(2,1fr)}}
-.card{background:#fff;border-radius:8px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.08);text-align:center}
-.card .label{font-size:11px;color:#888;margin-bottom:4px}
-.card .value{font-size:20px;font-weight:700}
-.card .value.orange{color:#f97316}
-.card .value.blue{color:#3b82f6}
-.card .unit{font-size:11px;color:#aaa;margin-top:2px}
-.chart-box{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:14px}
-.chart-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
-.chart-title-row h2{font-size:13px;font-weight:600;color:#555}
-.legend{display:flex;gap:14px;font-size:12px}
-.legend span{display:flex;align-items:center;gap:4px}
-.legend span::before{content:'';display:inline-block;width:24px;height:3px;border-radius:2px}
-.leg-orange::before{background:#f97316}
-.leg-blue::before{background:#3b82f6}
-.chart-wrap{position:relative;height:360px}
-.msg{text-align:center;padding:40px 16px;color:#888;font-size:13px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:14px;white-space:pre-line}
+.card{background:#fff;border-radius:10px;padding:14px 10px;box-shadow:0 1px 4px rgba(0,0,0,.07);text-align:center}
+.card .lbl{font-size:10px;color:#aaa;margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.card .val{font-size:22px;font-weight:800;line-height:1.1}
+.card .val.org{color:#f97316}
+.card .val.blu{color:#3b82f6}
+.card .val.sml{font-size:13px;padding-top:4px}
+.card .unt{font-size:10px;color:#bbb;margin-top:3px}
+
+/* チャートボックス */
+.chart-box{background:#fff;border-radius:12px;padding:16px 14px 12px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:12px}
+.chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap}
+.chart-head h2{font-size:13px;font-weight:700;color:#444}
+.legend{display:flex;gap:16px}
+.leg{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600}
+.leg-dot{width:28px;height:3px;border-radius:3px}
+.leg-org{background:#f97316}
+.leg-blu{background:#3b82f6}
+.chart-wrap{position:relative}
+.chart-wrap canvas{width:100%!important}
+
+/* メッセージ */
+.msg{text-align:center;padding:48px 16px;color:#bbb;font-size:13px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:12px;white-space:pre-line}
 .msg.loading{color:#f97316}
 .msg.error{color:#e53e3e}
-footer{text-align:center;padding:16px;font-size:11px;color:#aaa;line-height:1.8}
+
+footer{text-align:center;padding:12px;font-size:11px;color:#bbb;line-height:1.9}
 </style>
 </head>
 <body>
 <header>
-  <h1>📈 株 売買回転日数チャート</h1>
+  <h1>📈 売買回転日数チャート</h1>
   <span class="updated" id="updated"></span>
 </header>
+
 <div class="wrap">
-  <div class="search-area">
+  <div class="search-box">
     <div class="search-row">
-      <input type="text" id="code-input" placeholder="銘柄コード例: 7203" maxlength="8">
-      <button id="btn" onclick="search()">チャート表示</button>
+      <input type="text" id="inp" placeholder="銘柄コード（例: 7203）" maxlength="8" inputmode="numeric">
+      <button id="btn" onclick="doSearch()">表示</button>
     </div>
     <div class="chips" id="chips"></div>
   </div>
 
   <div class="cards" id="cards" style="display:none">
-    <div class="card"><div class="label">銘柄</div><div class="value orange" id="c-name" style="font-size:13px;padding-top:4px"></div></div>
-    <div class="card"><div class="label">最新 回転日数</div><div class="value orange" id="c-latest"></div><div class="unit">日</div></div>
-    <div class="card"><div class="label">現在株価</div><div class="value blue" id="c-price"></div><div class="unit">円</div></div>
-    <div class="card"><div class="label">回転日数 最小値</div><div class="value orange" id="c-min"></div><div class="unit">日（出来高が多い日）</div></div>
+    <div class="card">
+      <div class="lbl">銘柄</div>
+      <div class="val org sml" id="c-name"></div>
+    </div>
+    <div class="card">
+      <div class="lbl">最新 回転日数</div>
+      <div class="val org" id="c-turn"></div>
+      <div class="unt">日</div>
+    </div>
+    <div class="card">
+      <div class="lbl">現在株価</div>
+      <div class="val blu" id="c-price"></div>
+      <div class="unt">円</div>
+    </div>
+    <div class="card">
+      <div class="lbl">最小回転日数</div>
+      <div class="val org" id="c-min"></div>
+      <div class="unt">日（出来高ピーク）</div>
+    </div>
   </div>
 
-  <div id="msg" class="msg">銘柄コードを入力するか、下のチップをクリックしてください</div>
+  <div id="msg" class="msg">銘柄コードを入力してください</div>
+
   <div class="chart-box" id="chart-box" style="display:none">
-    <div class="chart-title-row">
+    <div class="chart-head">
       <h2 id="chart-title"></h2>
       <div class="legend">
-        <span class="leg-orange">回転日数（左軸）</span>
-        <span class="leg-blue">株価（右軸）</span>
+        <div class="leg"><div class="leg-dot leg-org"></div>回転日数</div>
+        <div class="leg"><div class="leg-dot leg-blu"></div>株価</div>
       </div>
     </div>
-    <div class="chart-wrap"><canvas id="chart"></canvas></div>
+    <div class="chart-wrap" id="chart-wrap">
+      <canvas id="chart"></canvas>
+    </div>
   </div>
 </div>
+
 <footer>
-  データ: Yahoo Finance / kabutan.jp ／ 売買回転日数 = 発行済株式数 ÷ 日次出来高<br>
-  ※ 情報提供のみが目的です。投資判断の根拠としないでください。
+  データ: Yahoo Finance / kabutan.jp ／ 回転日数 = 発行済株式数 ÷ 日次出来高<br>
+  ※ 情報提供目的のみ。投資判断の根拠としないでください。
 </footer>
 
 <script src="data.js"></script>
 <script>
 const PROXY = 'https://corsproxy.io/?';
-let chartInst = null;
+let chart = null;
+
+function chartH() { return window.innerWidth < 600 ? 260 : 400; }
 
 function init() {
   if (!window.TURNOVER_META) return;
-  document.getElementById("updated").textContent = "最終更新: " + TURNOVER_META.updated;
-  const chips = document.getElementById("chips");
+  document.getElementById('updated').textContent = '最終更新: ' + TURNOVER_META.updated;
+  const chips = document.getElementById('chips');
   TURNOVER_META.tickers.forEach(code => {
-    const d = TURNOVER_DATA[code];
-    if (!d) return;
-    const el = document.createElement("span");
-    el.className = "chip";
-    el.textContent = code + " " + shortName(d.name);
-    el.dataset.code = code;
-    el.onclick = () => { document.getElementById("code-input").value = code; search(); };
+    const d = TURNOVER_DATA[code]; if (!d) return;
+    const el = document.createElement('span');
+    el.className = 'chip'; el.dataset.code = code;
+    el.textContent = code + ' ' + (d.name.length > 7 ? d.name.slice(0,7)+'…' : d.name);
+    el.onclick = () => { document.getElementById('inp').value = code; doSearch(); };
     chips.appendChild(el);
   });
-  if (TURNOVER_META.tickers.length > 0) {
-    document.getElementById("code-input").value = TURNOVER_META.tickers[0];
-    search();
+  if (TURNOVER_META.tickers[0]) {
+    document.getElementById('inp').value = TURNOVER_META.tickers[0]; doSearch();
   }
 }
 
-function shortName(name) { return name.length > 8 ? name.slice(0, 8) + "…" : name; }
-
-async function search() {
-  const code = document.getElementById("code-input").value.trim().replace(/[．.]/g, "");
+async function doSearch() {
+  const code = document.getElementById('inp').value.trim().replace(/[．.]/g,'');
   if (!code) return;
-  document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.code === code));
-
-  if (window.TURNOVER_DATA?.[code]) {
-    // data.jsにあればYahoo Financeから株価だけ取得して重ねる
-    setLoading(true);
-    showMsg("株価データを取得中...", "loading");
-    try {
-      const base = TURNOVER_DATA[code];
-      const prices = await fetchPrices(code, base.dates);
-      showChart(code, base, prices);
-    } catch(e) {
-      showChart(code, TURNOVER_DATA[code], null);
-    } finally { setLoading(false); }
-    return;
-  }
-
-  setLoading(true);
-  showMsg("取得中...", "loading");
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.code === code));
+  setBtn(true);
+  setMsg('データを取得中...', 'loading');
   try {
-    const d = await fetchLive(code);
-    showChart(code, d, d.closes);
+    let d;
+    if (window.TURNOVER_DATA?.[code]) {
+      d = {...TURNOVER_DATA[code]};
+      d.closes = await fetchPrices(code, d.dates);
+    } else {
+      d = await fetchLive(code);
+    }
+    renderChart(code, d);
   } catch(e) {
-    showMsg("エラー: " + e.message + "\n銘柄コードを確認してください（例: 7203）", "error");
-    document.getElementById("cards").style.display = "none";
-    document.getElementById("chart-box").style.display = "none";
-  } finally { setLoading(false); }
+    setMsg('エラー: ' + e.message + '\n銘柄コードを確認してください（例: 7203）', 'error');
+    document.getElementById('cards').style.display = 'none';
+    document.getElementById('chart-box').style.display = 'none';
+  } finally { setBtn(false); }
 }
 
-function setLoading(on) {
-  const btn = document.getElementById("btn");
-  btn.disabled = on;
-  btn.textContent = on ? "取得中..." : "チャート表示";
+function setBtn(on) {
+  const b = document.getElementById('btn');
+  b.disabled = on; b.textContent = on ? '取得中...' : '表示';
+}
+function setMsg(t, cls='') {
+  const el = document.getElementById('msg');
+  el.style.display=''; el.textContent=t; el.className='msg '+cls;
 }
 
 async function fetchPrices(code, dates) {
-  const cr = await fetch(PROXY + encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${code}.T?range=6mo&interval=1d`));
-  const cj = await cr.json();
-  const result = cj?.chart?.result?.[0];
-  if (!result) return null;
-  const timestamps = result.timestamp || [];
-  const closes = result.indicators?.quote?.[0]?.close || [];
-  const priceMap = {};
-  for (let i = 0; i < timestamps.length; i++) {
-    const d = new Date(timestamps[i] * 1000).toISOString().split("T")[0];
-    if (closes[i]) priceMap[d] = Math.round(closes[i] * 10) / 10;
-  }
-  return dates.map(d => priceMap[d] ?? null);
+  const r = await fetch(PROXY + encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${code}.T?range=6mo&interval=1d`));
+  const j = await r.json();
+  const res = j?.chart?.result?.[0]; if (!res) return null;
+  const ts = res.timestamp || [], cl = res.indicators?.quote?.[0]?.close || [];
+  const map = {};
+  ts.forEach((t,i) => { if(cl[i]) map[new Date(t*1000).toISOString().split('T')[0]] = Math.round(cl[i]*10)/10; });
+  return dates.map(d => map[d] ?? null);
 }
 
 async function fetchLive(code) {
   const kr = await fetch(PROXY + encodeURIComponent(`https://kabutan.jp/stock/?code=${code}`));
   const html = await kr.text();
   const sm = html.match(/発行済株式数<\/th>\s*<td>([\d,]+)&nbsp;株/);
-  if (!sm) throw new Error("銘柄が見つかりません（" + code + "）");
-  const shares = parseInt(sm[1].replace(/,/g, ""));
+  if (!sm) throw new Error('銘柄が見つかりません（' + code + '）');
+  const shares = parseInt(sm[1].replace(/,/g,''));
   const nm = html.match(/<title>([^【]+)【/);
   const name = nm ? nm[1].trim() : code;
-
-  const cr = await fetch(PROXY + encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${code}.T?range=6mo&interval=1d`));
-  const cj = await cr.json();
-  const result = cj?.chart?.result?.[0];
-  if (!result) throw new Error("株価データが取得できません");
-
-  const timestamps = result.timestamp || [];
-  const volumes = result.indicators?.quote?.[0]?.volume || [];
-  const closesRaw = result.indicators?.quote?.[0]?.close || [];
-  const dates = [], vols = [], turnover = [], closes = [];
-  for (let i = 0; i < timestamps.length; i++) {
-    const v = volumes[i];
-    if (!v || v === 0) continue;
-    dates.push(new Date(timestamps[i] * 1000).toISOString().split("T")[0]);
-    vols.push(Math.round(v));
-    turnover.push(Math.round(shares / v * 10) / 10);
-    closes.push(closesRaw[i] ? Math.round(closesRaw[i] * 10) / 10 : null);
+  const r = await fetch(PROXY + encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${code}.T?range=6mo&interval=1d`));
+  const j = await r.json();
+  const res = j?.chart?.result?.[0]; if (!res) throw new Error('株価データが取得できません');
+  const ts=res.timestamp||[], vols=res.indicators?.quote?.[0]?.volume||[], cls=res.indicators?.quote?.[0]?.close||[];
+  const dates=[],volumes=[],turnover=[],closes=[];
+  for(let i=0;i<ts.length;i++){
+    const v=vols[i]; if(!v||v===0) continue;
+    dates.push(new Date(ts[i]*1000).toISOString().split('T')[0]);
+    volumes.push(Math.round(v));
+    turnover.push(Math.round(shares/v*10)/10);
+    closes.push(cls[i]?Math.round(cls[i]*10)/10:null);
   }
-  if (!dates.length) throw new Error("出来高データが取得できません");
-  return {name, shares, dates, volumes: vols, turnover, closes};
+  if(!dates.length) throw new Error('出来高データが取得できません');
+  return {name,shares,dates,volumes,turnover,closes};
 }
 
-function showMsg(text, cls = "") {
-  const el = document.getElementById("msg");
-  el.style.display = ""; el.textContent = text; el.className = "msg " + cls;
-}
+function renderChart(code, d) {
+  document.getElementById('msg').style.display = 'none';
+  document.getElementById('chart-box').style.display = '';
+  document.getElementById('cards').style.display = '';
 
-function showChart(code, d, prices) {
-  document.getElementById("msg").style.display = "none";
-  document.getElementById("chart-box").style.display = "";
-  document.getElementById("cards").style.display = "";
+  const t = d.turnover, p = d.closes;
+  const latestPrice = p ? [...p].reverse().find(v=>v!==null) : null;
+  document.getElementById('c-name').textContent = d.name + '（' + code + '）';
+  document.getElementById('c-turn').textContent = t[t.length-1].toLocaleString();
+  document.getElementById('c-price').textContent = latestPrice ? latestPrice.toLocaleString() : '—';
+  document.getElementById('c-min').textContent = Math.min(...t).toLocaleString();
+  document.getElementById('chart-title').textContent = d.name + '（' + code + '）　過去' + d.dates.length + '日間';
 
-  const t = d.turnover;
-  const latestPrice = prices ? prices.filter(p => p !== null).slice(-1)[0] : null;
-  document.getElementById("c-name").textContent = d.name + "（" + code + "）";
-  document.getElementById("c-latest").textContent = t[t.length - 1].toLocaleString();
-  document.getElementById("c-price").textContent = latestPrice ? latestPrice.toLocaleString() : "—";
-  document.getElementById("c-min").textContent = Math.min(...t).toLocaleString();
-  document.getElementById("chart-title").textContent =
-    d.name + "（" + code + "） 過去" + d.dates.length + "日";
+  // キャンバス高さを動的に設定
+  const wrap = document.getElementById('chart-wrap');
+  wrap.style.height = chartH() + 'px';
 
+  if (chart) chart.destroy();
   const datasets = [{
-    label: "回転日数",
+    label: '回転日数',
     data: t,
-    borderColor: "#f97316",
-    backgroundColor: "rgba(249,115,22,0.06)",
-    pointRadius: 2, pointHoverRadius: 5,
-    tension: 0.1, fill: true, borderWidth: 2,
-    yAxisID: "yLeft"
+    borderColor: '#f97316',
+    backgroundColor: ctx => {
+      const g = ctx.chart.ctx.createLinearGradient(0,0,0,chartH());
+      g.addColorStop(0,'rgba(249,115,22,0.18)');
+      g.addColorStop(1,'rgba(249,115,22,0.0)');
+      return g;
+    },
+    pointRadius: 0, pointHoverRadius: 5,
+    tension: 0.25, fill: true, borderWidth: 2.5,
+    yAxisID: 'yL'
   }];
+  if (p) datasets.push({
+    label: '株価',
+    data: p,
+    borderColor: '#3b82f6',
+    backgroundColor: 'transparent',
+    pointRadius: 0, pointHoverRadius: 5,
+    tension: 0.25, fill: false, borderWidth: 2,
+    yAxisID: 'yR', spanGaps: true
+  });
 
-  if (prices) {
-    datasets.push({
-      label: "株価",
-      data: prices,
-      borderColor: "#3b82f6",
-      backgroundColor: "rgba(59,130,246,0.0)",
-      pointRadius: 0, pointHoverRadius: 4,
-      tension: 0.2, fill: false, borderWidth: 2,
-      yAxisID: "yRight",
-      spanGaps: true
-    });
-  }
-
-  if (chartInst) chartInst.destroy();
-  chartInst = new Chart(document.getElementById("chart").getContext("2d"), {
-    type: "line",
+  chart = new Chart(document.getElementById('chart').getContext('2d'), {
+    type: 'line',
     data: { labels: d.dates, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { right: 10 } },
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: 'rgba(255,255,255,0.97)',
+          borderColor: '#e5e5e5', borderWidth: 1,
+          titleColor: '#333', bodyColor: '#555',
+          padding: 10, cornerRadius: 8,
           callbacks: {
-            label: ctx => {
-              if (ctx.dataset.yAxisID === "yLeft")
-                return "回転日数: " + ctx.parsed.y.toLocaleString() + " 日  出来高: " + d.volumes[ctx.dataIndex].toLocaleString() + " 株";
-              return "株価: " + ctx.parsed.y?.toLocaleString() + " 円";
-            }
+            title: c => c[0].label,
+            label: c => c.dataset.yAxisID === 'yL'
+              ? '  回転日数: ' + c.parsed.y.toLocaleString() + ' 日'
+              : '  株価: ' + (c.parsed.y?.toLocaleString() ?? '—') + ' 円',
+            afterBody: c => '  出来高: ' + d.volumes[c[0].dataIndex].toLocaleString() + ' 株'
           }
         }
       },
       scales: {
-        x: { ticks: { maxTicksLimit: 10, maxRotation: 30 }, grid: { color: "#f0f0f0" } },
-        yLeft: {
-          type: "linear", position: "left",
-          title: { display: true, text: "回転日数（日）", color: "#f97316" },
-          ticks: { color: "#f97316" },
-          grid: { color: "#f0f0f0" }
+        x: {
+          ticks: { maxTicksLimit: window.innerWidth<600 ? 6 : 10, maxRotation: 30, color: '#aaa', font:{size:11} },
+          grid: { color: '#f0f0f0' }
         },
-        yRight: {
-          type: "linear", position: "right",
-          title: { display: !!prices, text: "株価（円）", color: "#3b82f6" },
-          ticks: { color: "#3b82f6" },
+        yL: {
+          type: 'linear', position: 'left',
+          title: { display: true, text: '回転日数（日）', color: '#f97316', font:{size:11,weight:'bold'} },
+          ticks: { color: '#f97316', font:{size:11}, callback: v => v.toLocaleString() },
+          grid: { color: '#f0f0f0' }
+        },
+        yR: {
+          type: 'linear', position: 'right',
+          display: !!p,
+          title: { display: !!p, text: '株価（円）', color: '#3b82f6', font:{size:11,weight:'bold'} },
+          ticks: { color: '#3b82f6', font:{size:11}, callback: v => v.toLocaleString() },
           grid: { drawOnChartArea: false }
         }
       }
@@ -272,8 +293,8 @@ function showChart(code, d, prices) {
   });
 }
 
-document.getElementById("code-input").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
-window.addEventListener("DOMContentLoaded", init);
+document.getElementById('inp').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
+window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
