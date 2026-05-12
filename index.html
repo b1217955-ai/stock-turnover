@@ -55,18 +55,18 @@ header .updated{font-size:11px;color:#999}
 
 /* 相関分析 */
 .corr-box{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:10px}
-.corr-box h3{font-size:14px;font-weight:700;color:#444;margin-bottom:14px}
-.corr-note{font-size:11px;color:#aaa;margin-bottom:12px;line-height:1.6}
-.corr-table{width:100%;border-collapse:collapse;font-size:12px;overflow:auto;display:block}
-.corr-table th{background:#f7f6f3;padding:8px 10px;text-align:center;font-weight:700;white-space:nowrap;border:1px solid #eee}
-.corr-table td{padding:8px 10px;text-align:center;border:1px solid #eee;font-weight:600;white-space:nowrap}
-.corr-strong-pos{background:#fef3ec;color:#c2510a}
-.corr-weak-pos{background:#fffaf5;color:#888}
-.corr-weak-neg{background:#f0f6ff;color:#3b82f6}
-.corr-strong-neg{background:#dbeafe;color:#1d4ed8}
-.corr-self{background:#f7f6f3;color:#aaa}
-.corr-chart-wrap{margin-top:16px}
+.corr-box h3{font-size:14px;font-weight:700;color:#444;margin-bottom:6px}
+.corr-sub{font-size:11px;color:#aaa;margin-bottom:14px;line-height:1.6}
+.corr-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:650px){.corr-grid{grid-template-columns:1fr}}
+.corr-table{width:100%;border-collapse:collapse;font-size:12px}
+.corr-table th{background:#f7f6f3;padding:8px 10px;text-align:left;font-weight:700;border:1px solid #eee;white-space:nowrap}
+.corr-table td{padding:8px 10px;border:1px solid #eee;font-weight:600}
+.corr-val{text-align:center;font-size:15px}
+.corr-pos{color:#c2510a}.corr-neg{color:#1d4ed8}.corr-neu{color:#888}
+.corr-interp{font-size:11px;color:#666}
 .corr-chart-wrap h4{font-size:12px;font-weight:700;color:#555;margin-bottom:10px}
+.corr-scatter-note{font-size:11px;color:#aaa;margin-bottom:8px}
 
 /* メッセージ */
 .msg{text-align:center;padding:48px 16px;color:#bbb;font-size:13px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:10px;white-space:pre-line}
@@ -114,15 +114,20 @@ footer{text-align:center;padding:12px;font-size:11px;color:#bbb;line-height:1.9}
 
   <div id="corr-area" style="display:none">
     <div class="corr-box">
-      <h3>📊 回転日数の相関分析</h3>
-      <div class="corr-note">
-        各銘柄の売買回転日数の相関係数です。<br>
-        <span style="color:#c2510a">■ 橙: 正の相関（同じ方向に動く）</span>　<span style="color:#1d4ed8">■ 青: 負の相関（逆方向に動く）</span>
+      <h3>📊 回転日数 ↔ 株価 相関分析</h3>
+      <div class="corr-sub">各銘柄の「売買回転日数」と「株価」の相関係数（ピアソン）です。回転日数が多い（出来高が少ない）日と株価の動きの関係を示します。</div>
+      <div class="corr-grid">
+        <div>
+          <div style="overflow-x:auto"><table class="corr-table" id="corr-table"></table></div>
+        </div>
+        <div>
+          <div class="corr-scatter-note" id="scatter-note"></div>
+          <div style="position:relative;height:220px"><canvas id="scatter-chart"></canvas></div>
+        </div>
       </div>
-      <div style="overflow-x:auto"><table class="corr-table" id="corr-table"></table></div>
-      <div class="corr-chart-wrap">
+      <div class="corr-chart-wrap" style="margin-top:16px">
         <h4>回転日数の推移比較（全銘柄）</h4>
-        <div style="position:relative;height:240px"><canvas id="corr-chart"></canvas></div>
+        <div style="position:relative;height:220px"><canvas id="corr-chart"></canvas></div>
       </div>
     </div>
   </div>
@@ -135,11 +140,12 @@ footer{text-align:center;padding:12px;font-size:11px;color:#bbb;line-height:1.9}
 <script src="data.js"></script>
 <script>
 const PROXY = 'https://corsproxy.io/?';
-const cache = {};       // code → data
-const tabs = [];        // [{code, name}]
+const cache = {};
+const tabs = [];
 let activeCode = null;
 let mainChart = null;
 let corrChart = null;
+let scatterChart = null;
 
 const COLORS = ['#f97316','#3b82f6','#10b981','#8b5cf6','#ef4444','#f59e0b','#06b6d4','#ec4899'];
 
@@ -173,7 +179,9 @@ async function doSearch() {
       d = await fetchLive(code);
       cache[code] = d;
     } else if (!d.closes) {
-      d.closes = await fetchPrices(code, d.dates);
+      const fresh = await fetchLive(code);
+      cache[code] = fresh;
+      d = fresh;
     }
     addTab(code, d.name);
     switchTab(code);
@@ -277,6 +285,9 @@ function switchTab(code) {
       }
     }
   });
+
+  // 相関エリアのスキャッタ更新
+  if (document.getElementById('corr-area').style.display !== 'none') renderScatter(code);
 }
 
 /* ---- 相関分析 ---- */
@@ -289,73 +300,105 @@ function pearson(a, b) {
   return den ? +(num/den).toFixed(3) : null;
 }
 
-function alignTurnover(c1, c2) {
-  const m1 = new Map(cache[c1].dates.map((d,i)=>[d,cache[c1].turnover[i]]));
-  const m2 = new Map(cache[c2].dates.map((d,i)=>[d,cache[c2].turnover[i]]));
-  const common = cache[c1].dates.filter(d=>m2.has(d));
-  return {a: common.map(d=>m1.get(d)), b: common.map(d=>m2.get(d)), n: common.length};
+function linReg(xs, ys) {
+  const n=xs.length, sx=xs.reduce((s,v)=>s+v,0), sy=ys.reduce((s,v)=>s+v,0);
+  const sxy=xs.reduce((s,v,i)=>s+v*ys[i],0), sx2=xs.reduce((s,v)=>s+v*v,0);
+  const m=(n*sxy-sx*sy)/(n*sx2-sx*sx);
+  const b=(sy-m*sx)/n;
+  return {m, b};
 }
 
-function corrClass(r) {
-  if (r === null) return '';
-  if (r >= 0.5) return 'corr-strong-pos';
-  if (r > 0)    return 'corr-weak-pos';
-  if (r > -0.5) return 'corr-weak-neg';
-  return 'corr-strong-neg';
+function interpText(r) {
+  if (r === null) return '—';
+  if (r >= 0.5)  return '回転日数↑ → 株価↑ 傾向';
+  if (r >= 0.2)  return '弱い正の相関';
+  if (r > -0.2)  return '明確な相関なし';
+  if (r > -0.5)  return '弱い負の相関';
+  return '回転日数↑ → 株価↓ 傾向';
 }
 
 function renderCorr() {
   const area = document.getElementById('corr-area');
-  if (tabs.length < 2) { area.style.display = 'none'; return; }
+  if (tabs.length < 1) { area.style.display = 'none'; return; }
   area.style.display = '';
 
-  // 相関行列テーブル
-  const codes = tabs.map(t=>t.code);
-  const names = tabs.map(t=>t.name.length>6?t.name.slice(0,6)+'…':t.name);
-  let html = '<tr><th></th>' + names.map(n=>`<th>${n}</th>`).join('') + '</tr>';
-  codes.forEach((c1,i) => {
-    html += `<tr><th>${names[i]}</th>`;
-    codes.forEach((c2,j) => {
-      if (i === j) { html += '<td class="corr-self">—</td>'; return; }
-      const {a,b} = alignTurnover(c1,c2);
-      const r = pearson(a,b);
-      html += `<td class="${corrClass(r)}">${r !== null ? r.toFixed(2) : 'N/A'}</td>`;
-    });
-    html += '</tr>';
+  // 回転日数↔株価 相関テーブル
+  let html = '<tr><th>銘柄</th><th style="text-align:center">相関係数</th><th>解釈</th></tr>';
+  tabs.forEach(({code, name}) => {
+    const d = cache[code];
+    if (!d?.closes) { html += `<tr><td>${name}</td><td class="corr-val corr-neu">—</td><td class="corr-interp">株価データなし</td></tr>`; return; }
+    const pairs = d.turnover.map((t,i)=>[t, d.closes[i]]).filter(([,p])=>p!==null);
+    const r = pearson(pairs.map(p=>p[0]), pairs.map(p=>p[1]));
+    const cls = r===null?'corr-neu':r>=0.2?'corr-pos':r<=-0.2?'corr-neg':'corr-neu';
+    html += `<tr><td>${name}（${code}）</td><td class="corr-val ${cls}">${r!==null?r.toFixed(2):'—'}</td><td class="corr-interp">${interpText(r)}</td></tr>`;
   });
   document.getElementById('corr-table').innerHTML = html;
 
-  // 比較折れ線チャート（全銘柄の回転日数を正規化して重ねる）
+  // アクティブ銘柄の散布図
+  renderScatter(activeCode);
+
+  // 比較折れ線チャート
   const allDates = [...new Set(tabs.flatMap(t=>cache[t.code].dates))].sort();
-  const datasets = tabs.map(({code,name},i) => {
+  const lineDs = tabs.map(({code,name},i) => {
     const map = new Map(cache[code].dates.map((d,j)=>[d,cache[code].turnover[j]]));
     return {
-      label: name.length>6?name.slice(0,6)+'…':name,
+      label: name.length>5?name.slice(0,5)+'…':name,
       data: allDates.map(d=>map.get(d)??null),
-      borderColor: COLORS[i%COLORS.length],
-      backgroundColor: 'transparent',
-      pointRadius:0, pointHoverRadius:4,
-      tension:.2, fill:false, borderWidth:2, spanGaps:true
+      borderColor: COLORS[i%COLORS.length], backgroundColor:'transparent',
+      pointRadius:0, pointHoverRadius:4, tension:.2, fill:false, borderWidth:2, spanGaps:true
     };
   });
-
   if (corrChart) corrChart.destroy();
   corrChart = new Chart(document.getElementById('corr-chart').getContext('2d'), {
-    type:'line',
-    data:{labels:allDates, datasets},
+    type:'line', data:{labels:allDates, datasets:lineDs},
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{display:true,position:'top',labels:{boxWidth:20,font:{size:11}}},
-        tooltip:{
-          backgroundColor:'rgba(255,255,255,.97)',borderColor:'#e5e5e5',borderWidth:1,
-          titleColor:'#333',bodyColor:'#555',padding:8,cornerRadius:8
-        }
+        legend:{display:true,position:'top',labels:{boxWidth:18,font:{size:11}}},
+        tooltip:{backgroundColor:'rgba(255,255,255,.97)',borderColor:'#e5e5e5',borderWidth:1,titleColor:'#333',bodyColor:'#555',padding:8,cornerRadius:8}
       },
       scales:{
         x:{ticks:{maxTicksLimit:8,maxRotation:30,color:'#aaa',font:{size:10}},grid:{color:'#f0f0f0'}},
         y:{title:{display:true,text:'回転日数（日）',font:{size:10}},ticks:{color:'#aaa',font:{size:10},callback:v=>v.toLocaleString()},grid:{color:'#f0f0f0'}}
+      }
+    }
+  });
+}
+
+function renderScatter(code) {
+  const d = cache[code];
+  if (!d?.closes) return;
+  const pairs = d.turnover.map((t,i)=>[t, d.closes[i]]).filter(([,p])=>p!==null);
+  if (pairs.length < 5) return;
+  const xs = pairs.map(p=>p[0]), ys = pairs.map(p=>p[1]);
+  const {m, b} = linReg(xs, ys);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+
+  document.getElementById('scatter-note').textContent =
+    d.name + '（' + code + '）　回転日数 vs 株価（各点=1営業日）';
+
+  if (scatterChart) scatterChart.destroy();
+  scatterChart = new Chart(document.getElementById('scatter-chart').getContext('2d'), {
+    data:{
+      datasets:[
+        { type:'scatter', label:'日次データ',
+          data: pairs.map(([x,y])=>({x,y})),
+          backgroundColor:'rgba(249,115,22,0.35)', pointRadius:3, pointHoverRadius:5 },
+        { type:'line', label:'回帰直線',
+          data:[{x:xMin,y:m*xMin+b},{x:xMax,y:m*xMax+b}],
+          borderColor:'#3b82f6', borderWidth:2, pointRadius:0, fill:false }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.dataset.type==='scatter'?`回転日数: ${c.parsed.x.toLocaleString()}日 / 株価: ${c.parsed.y.toLocaleString()}円`:''}}
+      },
+      scales:{
+        x:{title:{display:true,text:'回転日数（日）',font:{size:10}},ticks:{color:'#aaa',font:{size:10},callback:v=>v.toLocaleString()},grid:{color:'#f0f0f0'}},
+        y:{title:{display:true,text:'株価（円）',font:{size:10}},ticks:{color:'#aaa',font:{size:10},callback:v=>v.toLocaleString()},grid:{color:'#f0f0f0'}}
       }
     }
   });
