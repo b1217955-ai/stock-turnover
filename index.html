@@ -69,6 +69,25 @@ header .updated{font-size:11px;color:#999}
 .corr-chart-wrap h4{font-size:12px;font-weight:700;color:#555;margin-bottom:10px}
 .corr-scatter-note{font-size:11px;color:#aaa;margin-bottom:8px}
 
+/* ランキング */
+.rank-box{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:10px}
+.rank-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none}
+.rank-head h3{font-size:13px;font-weight:700;color:#444;margin:0}
+.rank-meta{font-size:11px;color:#aaa}
+.rank-toggle{font-size:11px;color:#f97316;font-weight:600;white-space:nowrap}
+.rank-filters{display:flex;gap:6px;margin:10px 0 8px}
+.rank-filter{background:#f7f6f3;border:1.5px solid #e5e5e5;border-radius:16px;padding:3px 12px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;color:#666}
+.rank-filter.active{background:#f97316;border-color:#f97316;color:#fff}
+.rank-table{width:100%;border-collapse:collapse;font-size:12px}
+.rank-table th{background:#f7f6f3;padding:7px 8px;text-align:left;font-weight:700;border:1px solid #eee;white-space:nowrap}
+.rank-table td{padding:7px 8px;border:1px solid #eee;vertical-align:middle}
+.rank-table tr:hover td{background:#fff7f0;cursor:pointer}
+.rank-code{font-weight:700;color:#f97316}
+.rank-r.pos{color:#c2510a;font-weight:700}.rank-r.neg{color:#1d4ed8;font-weight:700}
+.rank-bar-wrap{width:100px;background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden;display:inline-block;vertical-align:middle}
+.rank-bar{height:8px;border-radius:4px}
+@media(max-width:600px){.rank-bar-wrap{display:none}}
+
 /* メッセージ */
 .msg{text-align:center;padding:48px 16px;color:#bbb;font-size:13px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:10px;white-space:pre-line}
 .msg.loading{color:#f97316}.msg.error{color:#e53e3e}
@@ -89,6 +108,8 @@ footer{text-align:center;padding:12px;font-size:11px;color:#bbb;line-height:1.9}
     </div>
     <div class="presets" id="presets"></div>
   </div>
+
+  <div id="ranking-area"></div>
 
   <div class="tabs-wrap" id="tabs-wrap" style="display:none"></div>
 
@@ -150,6 +171,7 @@ footer{text-align:center;padding:12px;font-size:11px;color:#bbb;line-height:1.9}
 </footer>
 
 <script src="data.js"></script>
+<script src="ranking.js"></script>
 <script>
 const PROXY = 'https://corsproxy.io/?';
 const cache = {};
@@ -566,8 +588,61 @@ async function fetchLive(code) {
   return {name,shares,dates,volumes,turnover,closes,margins};
 }
 
+/* ---- ランキング ---- */
+let rankFilter = 'all';
+let rankOpen   = true;
+
+function renderRanking() {
+  const area = document.getElementById('ranking-area');
+  if (!window.RANKING_DATA) { area.innerHTML = ''; return; }
+
+  const data = RANKING_DATA.filter(d =>
+    rankFilter === 'pos' ? d.r >= 0 :
+    rankFilter === 'neg' ? d.r < 0 : true
+  );
+
+  const rows = data.map((d, i) => {
+    const abs   = Math.abs(d.r);
+    const isPos = d.r >= 0;
+    const color = isPos ? '#f97316' : '#3b82f6';
+    const rCls  = isPos ? 'pos' : 'neg';
+    return `<tr onclick="document.getElementById('inp').value='${d.code}';doSearch()">
+      <td style="text-align:center;color:#aaa">${i+1}</td>
+      <td class="rank-code">${d.code}</td>
+      <td>${d.name.replace(/（.*?）/,'')}</td>
+      <td class="rank-r ${rCls}">${d.r >= 0 ? '+' : ''}${d.r.toFixed(3)}</td>
+      <td><div class="rank-bar-wrap"><div class="rank-bar" style="width:${abs*100}%;background:${color}"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML = `
+  <div class="rank-box">
+    <div class="rank-head" onclick="rankOpen=!rankOpen;renderRanking()">
+      <h3>📈 回転日数↔株価 相関ランキング（個別株 上位100件）</h3>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="rank-meta">更新: ${window.RANKING_UPDATED||'—'}</span>
+        <span class="rank-toggle">${rankOpen?'▲ 閉じる':'▼ 開く'}</span>
+      </div>
+    </div>
+    ${rankOpen ? `
+    <div class="rank-filters">
+      <span class="rank-filter ${rankFilter==='all'?'active':''}" onclick="event.stopPropagation();rankFilter='all';renderRanking()">全て</span>
+      <span class="rank-filter ${rankFilter==='pos'?'active':''}" onclick="event.stopPropagation();rankFilter='pos';renderRanking()">正の相関</span>
+      <span class="rank-filter ${rankFilter==='neg'?'active':''}" onclick="event.stopPropagation();rankFilter='neg';renderRanking()">負の相関</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="rank-table">
+        <thead><tr><th>#</th><th>コード</th><th>銘柄名</th><th>r値</th><th>強さ</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="font-size:10px;color:#ccc;margin-top:8px">行をクリックするとチャートを表示します</div>
+    ` : ''}
+  </div>`;
+}
+
 document.getElementById('inp').addEventListener('keydown', e=>{if(e.key==='Enter') doSearch();});
-window.addEventListener('DOMContentLoaded', init);
+window.addEventListener('DOMContentLoaded', () => { init(); renderRanking(); });
 </script>
 </body>
 </html>
