@@ -75,6 +75,13 @@ header .updated{font-size:11px;color:#999}
 .rank-head h3{font-size:13px;font-weight:700;color:#444;margin:0}
 .rank-meta{font-size:11px;color:#aaa}
 .rank-toggle{font-size:11px;color:#f97316;font-weight:600;white-space:nowrap}
+.rank-update-btn{font-size:11px;color:#fff;background:#10b981;border-radius:10px;padding:2px 9px;font-weight:600;cursor:pointer;white-space:nowrap}
+.rank-update-btn:hover{background:#059669}
+.rank-cmd-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:center;justify-content:center}
+.rank-cmd-box{background:#fff;border-radius:12px;padding:24px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.rank-cmd-box h4{font-size:14px;font-weight:700;margin-bottom:12px;color:#333}
+.rank-cmd-box pre{background:#1a1a1a;color:#10b981;padding:14px;border-radius:8px;font-size:12px;overflow-x:auto;margin-bottom:14px;line-height:1.7}
+.rank-cmd-close{background:#f97316;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;float:right}
 .rank-filters{display:flex;gap:6px;margin:10px 0 8px}
 .rank-filter{background:#f7f6f3;border:1.5px solid #e5e5e5;border-radius:16px;padding:3px 12px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;color:#666}
 .rank-filter.active{background:#f97316;border-color:#f97316;color:#fff}
@@ -588,6 +595,24 @@ async function fetchLive(code) {
   return {name,shares,dates,volumes,turnover,closes,margins};
 }
 
+/* ---- 更新コマンド表示 ---- */
+function showUpdateCmd() {
+  const m = document.createElement('div');
+  m.className = 'rank-cmd-modal';
+  m.innerHTML = `
+    <div class="rank-cmd-box">
+      <h4>🔄 ランキング更新手順</h4>
+      <pre>cd ~/Desktop/AI/stock-turnover\npython3 update_ranking.py</pre>
+      <div style="font-size:11px;color:#aaa;margin-bottom:16px">
+        全上場銘柄（約4,000銘柄）をスキャンしてランキングを更新します。<br>
+        約13〜20分かかります。完了後に自動でGitHubへアップロードされます。
+      </div>
+      <button class="rank-cmd-close" onclick="this.closest('.rank-cmd-modal').remove()">閉じる</button>
+    </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+
 /* ---- ランキング ---- */
 let rankFilter = 'all';
 let rankOpen   = true;
@@ -619,8 +644,9 @@ function renderRanking() {
   <div class="rank-box">
     <div class="rank-head" onclick="rankOpen=!rankOpen;renderRanking()">
       <h3>📈 回転日数↔株価 相関ランキング（個別株 上位100件）</h3>
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
         <span class="rank-meta">更新: ${window.RANKING_UPDATED||'—'}</span>
+        <span class="rank-update-btn" onclick="event.stopPropagation();showUpdateCmd()" title="更新コマンドを表示">🔄 更新</span>
         <span class="rank-toggle">${rankOpen?'▲ 閉じる':'▼ 開く'}</span>
       </div>
     </div>
